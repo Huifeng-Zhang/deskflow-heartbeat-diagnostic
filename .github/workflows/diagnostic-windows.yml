@@ -1,0 +1,72 @@
+name: Diagnostic Windows build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write # only to publish this diagnostic package as a prerelease
+
+concurrency:
+  group: diagnostic-windows
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository_visibility == 'public'
+    runs-on: windows-2022
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Verify public source and workflow allowlist
+        run: python scripts/verify_public.py
+      - name: Install Qt build dependency on the disposable runner
+        run: |
+          python -m pip install --disable-pip-version-check aqtinstall==3.3.0
+          if ($LASTEXITCODE) { throw 'aqt installation failed' }
+          python -m aqt install-qt windows desktop 6.11.3 win64_msvc2022_64 --modules qtsvg --outputdir "$env:RUNNER_TEMP/Qt"
+          if ($LASTEXITCODE) { throw 'Qt download failed' }
+          "$env:RUNNER_TEMP/Qt/6.11.3/msvc2022_64/bin" >> $env:GITHUB_PATH
+      - name: Configure release build
+        run: |
+          $ssl = @('C:/Program Files/OpenSSL','C:/Program Files/OpenSSL-Win64') | Where-Object { Test-Path "$_/include/openssl/ssl.h" } | Select-Object -First 1
+          if (!$ssl) { throw 'Expected preinstalled OpenSSL development files unavailable' }
+          "$ssl/bin" >> $env:GITHUB_PATH
+          "DIAG_OPENSSL_ROOT=$ssl" >> $env:GITHUB_ENV
+          cmake -S upstream -B build -G 'Visual Studio 17 2022' -A x64 -DCMAKE_BUILD_TYPE=Release -DBUILD_INSTALLER=OFF -DBUILD_TESTS=ON -DSKIP_BUILD_TESTS=ON "-DCMAKE_PREFIX_PATH=$env:RUNNER_TEMP/Qt/6.11.3/msvc2022_64" "-DOPENSSL_ROOT_DIR=$ssl" "-DCMAKE_INSTALL_PREFIX=$env:GITHUB_WORKSPACE/stage"
+          if ($LASTEXITCODE) { throw 'CMake configure failed' }
+      - name: Compile
+        run: |
+          cmake --build build --config Release --parallel 4
+          if ($LASTEXITCODE) { throw 'Compilation failed' }
+      - name: Test
+        run: |
+          ctest --test-dir build/src/unittests -C Release --output-on-failure --timeout 60
+          if ($LASTEXITCODE) { throw 'Tests failed; no package will be published' }
+      - name: Stage and audit package
+        run: |
+          cmake --install build --config Release
+          if ($LASTEXITCODE) { throw 'Staging failed' }
+          & "$env:RUNNER_TEMP/Qt/6.11.3/msvc2022_64/bin/windeployqt.exe" --release --no-compiler-runtime --no-opengl-sw --no-system-d3d-compiler stage/deskflow.exe stage/deskflow-core.exe
+          if ($LASTEXITCODE) { throw 'Qt deployment failed' }
+          Copy-Item PROVENANCE.json stage/PROVENANCE.json
+          Copy-Item README.md stage/DIAGNOSTIC-README.md
+          @{ source_commit=$env:GITHUB_SHA; run_url="https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"; runner='windows-2022'; build_type='Release'; configuration_or_logs_included=$false } | ConvertTo-Json | Set-Content stage/BUILD-PROVENANCE.json -Encoding utf8
+          python scripts/verify_public.py --package stage
+          if ($LASTEXITCODE) { throw 'Package privacy audit failed' }
+          Get-ChildItem stage -Recurse -File | ForEach-Object { $f=$_; [pscustomobject]@{ path=$f.FullName.Substring((Resolve-Path stage).Path.Length+1).Replace('\','/'); sha256=(Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant() } } | ConvertTo-Json | Set-Content stage/FILES-SHA256.json -Encoding utf8
+          Compress-Archive -Path stage/* -DestinationPath deskflow-heartbeat-diagnostic-win-x64.zip
+          (Get-FileHash deskflow-heartbeat-diagnostic-win-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant() + '  deskflow-heartbeat-diagnostic-win-x64.zip' | Set-Content SHA256SUMS.txt -Encoding ascii
+      - name: Publish diagnostic prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag="heartbeat-diag-$env:GITHUB_RUN_NUMBER"
+          $notes="Diagnostic-only build; not a disconnect fix. Built from commit $env:GITHUB_SHA. No user logs, settings, certificates, or credentials are included. Review provenance and checksum before execution."
+          $notes | Set-Content release-notes.txt -Encoding utf8
+          gh release create $tag deskflow-heartbeat-diagnostic-win-x64.zip SHA256SUMS.txt --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Heartbeat diagnostic $env:GITHUB_RUN_NUMBER" --prerelease --notes-file release-notes.txt
+          if ($LASTEXITCODE) { throw 'Prerelease publication failed; do not retry blindly' }

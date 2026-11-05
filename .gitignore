@@ -1,0 +1,5 @@
+/build/
+/stage/
+*.zip
+SHA256SUMS.txt
+release-notes.txt

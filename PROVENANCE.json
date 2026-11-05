@@ -1,0 +1,16 @@
+{
+  "upstream_repository": "https://github.com/deskflow/deskflow",
+  "upstream_tag": "v1.27.0",
+  "upstream_tag_object": "90376dfaba2c28dd61c5d4453ae5641c6edec5a3",
+  "upstream_commit": "081f6478e654a112168879e67a41ce7d7e4ae3af",
+  "source_archive_url": "https://codeload.github.com/deskflow/deskflow/zip/refs/tags/v1.27.0",
+  "source_archive_sha256": "b63897850d45c467ecd0a6fe2a22ad67b1fa153124d1943a655cbfae386bf4ec",
+  "modified_files": [
+    "src/lib/server/ClientProxy1_3.cpp",
+    "src/lib/server/ClientProxy1_3.h",
+    "src/unittests/server/ClientProxyTests.cpp",
+    "src/unittests/server/ClientProxyTests.h"
+  ],
+  "purpose": "Heartbeat timing diagnostics only; no scheduler fix or protocol change.",
+  "personal_data_included": false
+}
