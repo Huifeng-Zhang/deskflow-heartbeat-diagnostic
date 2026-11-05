@@ -14,5 +14,6 @@ def architecture_suffix(self):
         return '_msvc2022_64'
     return original(self)
 QtArchives._arch_ext=architecture_suffix
-sys.argv=['aqt','install-qt','windows','desktop','6.11.3','win64_msvc2022_64','--outputdir',os.path.join(os.environ['RUNNER_TEMP'],'Qt')]
-runpy.run_module('aqt',run_name='__main__')
+if __name__ == '__main__':
+    sys.argv=['aqt','install-qt','windows','desktop','6.11.3','win64_msvc2022_64','--outputdir',os.path.join(os.environ['RUNNER_TEMP'],'Qt')]
+    runpy.run_module('aqt',run_name='__main__')

@@ -35,11 +35,14 @@ else:
     source=root/'upstream'
     actual={path.relative_to(source).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in source.rglob('*') if path.is_file()}
     if actual!=manifest: raise SystemExit('Source allowlist/hash mismatch.')
-    allowed={'README.md','PROVENANCE.json','SOURCE-MANIFEST.json','.gitignore','.gitattributes','.github/workflows/diagnostic-windows.yml','scripts/verify_public.py','scripts/install_qt.py'}
+    third_party=json.loads((root/'THIRD-PARTY-SOURCES.json').read_text())['license_files']
+    actual_licenses={path.relative_to(root).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in (root/'third-party-licenses').rglob('*') if path.is_file()}
+    if actual_licenses!=third_party: raise SystemExit('Third-party license hash mismatch.')
+    allowed={'THIRD-PARTY-NOTICES.md','THIRD-PARTY-SOURCES.json','README.md','PROVENANCE.json','SOURCE-MANIFEST.json','.gitignore','.gitattributes','.github/workflows/diagnostic-windows.yml','scripts/verify_public.py','scripts/install_qt.py'}
     for path in root.rglob('*'):
         relative=path.relative_to(root).as_posix()
         if not path.is_file() or '.git' in path.relative_to(root).parts: continue
-        if not relative.startswith('upstream/') and relative not in allowed:
+        if not relative.startswith('upstream/') and relative not in allowed and relative not in third_party:
             raise SystemExit('Unexpected repository file: '+relative)
         audit_file(path)
     workflow=(root/'.github/workflows/diagnostic-windows.yml').read_text()

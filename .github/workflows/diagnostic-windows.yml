@@ -55,7 +55,12 @@ jobs:
           if ($LASTEXITCODE) { throw 'Qt deployment failed' }
           Copy-Item PROVENANCE.json stage/PROVENANCE.json
           Copy-Item README.md stage/DIAGNOSTIC-README.md
-          @{ source_commit=$env:GITHUB_SHA; run_url="https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"; runner='windows-2022'; build_type='Release'; configuration_or_logs_included=$false } | ConvertTo-Json | Set-Content stage/BUILD-PROVENANCE.json -Encoding utf8
+          Copy-Item THIRD-PARTY-NOTICES.md stage/THIRD-PARTY-NOTICES.md
+          Copy-Item THIRD-PARTY-SOURCES.json stage/THIRD-PARTY-SOURCES.json
+          Copy-Item third-party-licenses stage/third-party-licenses -Recurse
+          $opensslVersion = & "$env:DIAG_OPENSSL_ROOT/bin/openssl.exe" version
+          if ($LASTEXITCODE) { throw 'Unable to record OpenSSL provenance' }
+          @{ source_commit=$env:GITHUB_SHA; run_url="https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"; runner='windows-2022'; build_type='Release'; openssl_version=$opensslVersion; configuration_or_logs_included=$false } | ConvertTo-Json | Set-Content stage/BUILD-PROVENANCE.json -Encoding utf8
           python scripts/verify_public.py --package stage
           if ($LASTEXITCODE) { throw 'Package privacy audit failed' }
           $hashRows = @(Get-ChildItem stage -Recurse -File | Where-Object { $_.Name -ne 'FILES-SHA256.json' } | ForEach-Object { $f=$_; [pscustomobject]@{ path=$f.FullName.Substring((Resolve-Path stage).Path.Length+1).Replace('\','/'); sha256=(Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant() } })
