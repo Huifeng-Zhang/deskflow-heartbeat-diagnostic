@@ -45,6 +45,31 @@ jobs:
           if ($LASTEXITCODE) { throw 'Compilation failed' }
       - name: Test
         run: |
+          # Upstream I18NTests expects ../../../translations from its executable.
+          # Visual Studio adds a Release directory, so stage the unchanged fixtures.
+          $i18n = Get-Item build/src/unittests/common/Release/I18NTests.exe
+          $fixture = [IO.Path]::GetFullPath((Join-Path $i18n.DirectoryName '../../../translations'))
+          $buildRoot = (Resolve-Path build).Path
+          if (!$fixture.StartsWith($buildRoot + [IO.Path]::DirectorySeparatorChar)) { throw 'Test fixture path escaped build directory' }
+          Push-Location build/src/lib/common
+          & $i18n.FullName -o "$env:GITHUB_WORKSPACE/i18n-before-fixtures.txt,txt"
+          $beforeFixtureExit = $LASTEXITCODE
+          Pop-Location
+          "I18N baseline exit before fixture staging: $beforeFixtureExit"
+          Get-Content i18n-before-fixtures.txt -ErrorAction Stop
+          New-Item -ItemType Directory -Path $fixture -Force | Out-Null
+          $translations = @(Get-ChildItem build/translations/deskflow_*.qm -File)
+          if ($translations.Count -ne 7) { throw 'Expected seven generated translation fixtures' }
+          foreach ($tr in $translations) {
+            Copy-Item -LiteralPath $tr.FullName -Destination $fixture
+            if ((Get-FileHash -LiteralPath $tr.FullName).Hash -ne (Get-FileHash -LiteralPath (Join-Path $fixture $tr.Name)).Hash) { throw 'Translation fixture hash mismatch' }
+          }
+          Push-Location build/src/lib/common
+          & $i18n.FullName -o "$env:GITHUB_WORKSPACE/i18n-after-fixtures.txt,txt"
+          $i18nExit = $LASTEXITCODE
+          Pop-Location
+          Get-Content i18n-after-fixtures.txt -ErrorAction Stop
+          if ($i18nExit) { throw 'I18N test still fails with verified fixtures' }
           ctest --test-dir build/src/unittests -C Release --output-on-failure --timeout 60
           if ($LASTEXITCODE) { throw 'Tests failed; no package will be published' }
       - name: Stage and audit package
