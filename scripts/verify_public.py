@@ -27,8 +27,19 @@ if args.package:
         if path.is_file(): audit_file(path)
     for exe in ('deskflow.exe','deskflow-core.exe','deskflow-daemon.exe'):
         if not (args.package/exe).is_file(): raise SystemExit('Missing executable: '+exe)
-    if any(path.name.lower() in {'settings','tls','.git'} for path in files):
-        raise SystemExit('Settings, certificate, or Git directory must not be packaged.')
+    if any(path.name.lower() in {'settings','.git'} for path in files):
+        raise SystemExit('Settings or Git directory must not be packaged.')
+    # Qt's TLS backend plugins are executable dependencies, not user certificates.
+    for path in files:
+        if not path.is_dir() or path.name.lower()!='tls': continue
+        relative=path.relative_to(args.package).as_posix()
+        children=list(path.iterdir())
+        allowed_backends={'qcertonlybackend.dll','qschannelbackend.dll','qopensslbackend.dll'}
+        if relative not in {'tls','plugins/tls'} or not children:
+            raise SystemExit('Unexpected TLS directory: '+relative)
+        for child in children:
+            if not child.is_file() or child.name.lower() not in allowed_backends or child.read_bytes()[:2]!=b'MZ':
+                raise SystemExit('Only known Qt TLS backend DLLs may be packaged: '+relative)
     print('Package audit passed: generated executables, dependencies, licenses and provenance only.')
 else:
     manifest=json.loads((root/'SOURCE-MANIFEST.json').read_text())
