@@ -43,7 +43,7 @@ else:
             raise SystemExit('Unexpected repository file: '+relative)
         audit_file(path)
     workflow=(root/'.github/workflows/diagnostic-windows.yml').read_text()
-    if 'runs-on: windows-2022' not in workflow or "github.repository_visibility == 'public'" not in workflow:
+    if 'runs-on: windows-2022' not in workflow or "github.event.repository.visibility == 'public'" not in workflow:
         raise SystemExit('Public standard-runner guard missing.')
     for forbidden in ('upload-artifact@','actions/cache@','self-hosted','schedule:','pull_request:','push:','windows-latest'):
         if forbidden in workflow: raise SystemExit('Unexpected workflow behavior: '+forbidden)
