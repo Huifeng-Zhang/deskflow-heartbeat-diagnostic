@@ -58,7 +58,8 @@ jobs:
           @{ source_commit=$env:GITHUB_SHA; run_url="https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"; runner='windows-2022'; build_type='Release'; configuration_or_logs_included=$false } | ConvertTo-Json | Set-Content stage/BUILD-PROVENANCE.json -Encoding utf8
           python scripts/verify_public.py --package stage
           if ($LASTEXITCODE) { throw 'Package privacy audit failed' }
-          Get-ChildItem stage -Recurse -File | ForEach-Object { $f=$_; [pscustomobject]@{ path=$f.FullName.Substring((Resolve-Path stage).Path.Length+1).Replace('\','/'); sha256=(Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant() } } | ConvertTo-Json | Set-Content stage/FILES-SHA256.json -Encoding utf8
+          $hashRows = @(Get-ChildItem stage -Recurse -File | Where-Object { $_.Name -ne 'FILES-SHA256.json' } | ForEach-Object { $f=$_; [pscustomobject]@{ path=$f.FullName.Substring((Resolve-Path stage).Path.Length+1).Replace('\','/'); sha256=(Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant() } })
+          $hashRows | ConvertTo-Json | Set-Content stage/FILES-SHA256.json -Encoding utf8
           Compress-Archive -Path stage/* -DestinationPath deskflow-heartbeat-diagnostic-win-x64.zip
           (Get-FileHash deskflow-heartbeat-diagnostic-win-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant() + '  deskflow-heartbeat-diagnostic-win-x64.zip' | Set-Content SHA256SUMS.txt -Encoding ascii
       - name: Publish diagnostic prerelease
