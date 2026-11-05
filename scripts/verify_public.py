@@ -35,7 +35,7 @@ else:
     source=root/'upstream'
     actual={path.relative_to(source).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in source.rglob('*') if path.is_file()}
     if actual!=manifest: raise SystemExit('Source allowlist/hash mismatch.')
-    allowed={'README.md','PROVENANCE.json','SOURCE-MANIFEST.json','.gitignore','.gitattributes','.github/workflows/diagnostic-windows.yml','scripts/verify_public.py'}
+    allowed={'README.md','PROVENANCE.json','SOURCE-MANIFEST.json','.gitignore','.gitattributes','.github/workflows/diagnostic-windows.yml','scripts/verify_public.py','scripts/install_qt.py'}
     for path in root.rglob('*'):
         relative=path.relative_to(root).as_posix()
         if not path.is_file() or '.git' in path.relative_to(root).parts: continue

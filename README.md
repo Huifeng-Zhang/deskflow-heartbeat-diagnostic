@@ -12,6 +12,6 @@ The event-loop scheduling, heartbeat periods, protocol bytes, and security behav
 
 Only the manually dispatched `diagnostic-windows.yml` workflow is provided. It uses the standard `windows-2022` GitHub-hosted runner, has a 35-minute timeout, and refuses private-repository runs. There are no scheduled builds, larger/self-hosted runners, Actions artifact uploads, or Actions caches. A successful tested build is published as a diagnostic prerelease with checksums and provenance.
 
-Builds use Release mode, Qt 6.11.3, the runner's preinstalled MSVC/OpenSSL tools, and aqtinstall 3.3.0 from PyPI. This package is unsigned. Do not run it until its source, tests, provenance, and checksum have been reviewed and execution has been authorized.
+Builds use Release mode, Qt 6.11.3, the runner's preinstalled MSVC/OpenSSL tools, and aqtinstall 3.3.0 from PyPI. A narrow compatibility wrapper selects Qt 6.11's official architecture-specific repository directory; archive and metadata checksum checks are unchanged. This package is unsigned. Do not run it until its source, tests, provenance, and checksum have been reviewed and execution has been authorized.
 
 This repository contains no production-machine logs, settings, keys, certificates, backups, credential helpers, or account billing information.
