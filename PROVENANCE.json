@@ -6,11 +6,16 @@
   "source_archive_url": "https://codeload.github.com/deskflow/deskflow/zip/refs/tags/v1.27.0",
   "source_archive_sha256": "b63897850d45c467ecd0a6fe2a22ad67b1fa153124d1943a655cbfae386bf4ec",
   "modified_files": [
+    "src/lib/net/SecureSocket.cpp",
+    "src/lib/net/SecureSocket.h",
+    "src/lib/server/ClientProxy1_0.h",
+    "src/lib/server/ReconnectPolicy.h",
+    "src/lib/server/Server.cpp",
     "src/lib/server/ClientProxy1_3.cpp",
     "src/lib/server/ClientProxy1_3.h",
     "src/unittests/server/ClientProxyTests.cpp",
     "src/unittests/server/ClientProxyTests.h"
   ],
-  "purpose": "Heartbeat timing diagnostics only; no scheduler fix or protocol change.",
+  "purpose": "Windows authenticated stale-session replacement with heartbeat timing diagnostics.",
   "personal_data_included": false
 }

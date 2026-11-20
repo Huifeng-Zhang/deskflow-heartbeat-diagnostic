@@ -9,6 +9,7 @@
 
 #include "net/SecurityLevel.h"
 #include "net/TCPSocket.h"
+#include <QByteArray>
 
 #include <memory>
 #include <mutex>
@@ -59,6 +60,8 @@ public:
     m_fatal = b;
   }
   bool isSecureReady() const;
+  // Immutable after the authenticated socket is handed to the event loop.
+  const QByteArray &verifiedClientFingerprint() const { return m_verifiedClientFingerprint; }
   void secureConnect();
   void secureAccept();
   int secureRead(void *buffer, int size, int &read);
@@ -78,7 +81,7 @@ private:
   bool showCertificate() const;
   void checkResult(int n, int &retry);
   void disconnect();
-  bool verifyCertFingerprint(const QString &FingerprintDatabasePath) const;
+  bool verifyCertFingerprint(const QString &FingerprintDatabasePath, QByteArray *verifiedDigest = nullptr) const;
 
   ISocketMultiplexerJob *serviceConnect(ISocketMultiplexerJob *const socket, bool, bool, bool);
 
@@ -93,6 +96,7 @@ private:
   std::mutex ssl_mutex_;
 
   std::unique_ptr<Ssl> m_ssl;
+  QByteArray m_verifiedClientFingerprint;
   bool m_secureReady = false;
   bool m_fatal = false;
   SecurityLevel m_securityLevel = SecurityLevel::Encrypted;

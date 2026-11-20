@@ -24,6 +24,7 @@ private Q_SLOTS:
   void keyUp_data();
   void keyUp();
   void heartbeatDiagnosticPreservesWire();
+  void authenticatedReconnectPolicy();
 
 private:
   Log m_log;

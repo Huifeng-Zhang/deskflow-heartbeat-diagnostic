@@ -430,7 +430,8 @@ int SecureSocket::secureAccept(int socket)
 
   // If not fatal and no retry, state is good
   if (retry == 0) {
-    if (m_securityLevel == SecurityLevel::PeerAuth && !verifyCertFingerprint(Settings::tlsTrustedClientsDb())) {
+    if (m_securityLevel == SecurityLevel::PeerAuth &&
+        !verifyCertFingerprint(Settings::tlsTrustedClientsDb(), &m_verifiedClientFingerprint)) {
       retry = 0;
       disconnect();
       return -1; // Fail
@@ -613,7 +614,7 @@ void SecureSocket::disconnect()
   sendEvent(StreamInputShutdown);
 }
 
-bool SecureSocket::verifyCertFingerprint(const QString &FingerprintDatabasePath) const
+bool SecureSocket::verifyCertFingerprint(const QString &FingerprintDatabasePath, QByteArray *verifiedDigest) const
 {
   const auto cert = SSL_get_peer_certificate(m_ssl->m_ssl);
   const auto sha256 = deskflow::sslCertFingerprint(cert, QCryptographicHash::Sha256);
@@ -650,6 +651,8 @@ bool SecureSocket::verifyCertFingerprint(const QString &FingerprintDatabasePath)
   }
 
   LOG_DEBUG("fingerprint matches trusted fingerprint");
+  if (verifiedDigest)
+    *verifiedDigest = sha256.data;
   return true;
 }
 

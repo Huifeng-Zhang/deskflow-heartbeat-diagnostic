@@ -10,6 +10,7 @@
 #pragma once
 
 #include "server/ClientProxy1_2.h"
+#include <QByteArray>
 #include <cstdint>
 
 //! Proxy for client implementing protocol version 1.3
@@ -26,6 +27,7 @@ public:
 
   // IClient overrides
   void mouseWheel(int32_t xDelta, int32_t yDelta) override;
+  bool retireForReconnect(const ClientProxy1_3 &replacement);
 
 protected:
   // ClientProxy overrides
@@ -40,6 +42,8 @@ protected:
 private:
   double m_keepAliveRate = kKeepAliveRate;
   EventQueueTimer *m_keepAliveTimer = nullptr;
+  QByteArray m_verifiedClientFingerprint;
+  int64_t m_firstUnansweredUs = 0;
   IEventQueue *m_events = nullptr;
 
   // Diagnostic metadata only. No input values, payloads, or peer names.

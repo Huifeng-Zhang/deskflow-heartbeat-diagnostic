@@ -66,8 +66,9 @@ protected:
   virtual void removeHeartbeatTimer();
   virtual bool recvClipboard();
 
-private:
   void disconnect();
+
+private:
   void removeHandlers();
 
   void handleData();

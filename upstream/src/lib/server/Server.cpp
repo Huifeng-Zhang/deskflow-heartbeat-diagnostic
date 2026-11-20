@@ -26,6 +26,7 @@
 #include "server/PrimaryClient.h"
 
 #ifdef _WIN32
+#include "server/ClientProxy1_3.h"
 #include <algorithm>
 #include <array>
 #endif
@@ -260,6 +261,19 @@ void Server::adoptClient(BaseClientProxy *client)
   }
 
   // add client to client list
+#ifdef _WIN32
+  const auto existing = m_clients.find(getName(client));
+  if (existing != m_clients.end()) {
+    auto *previous = dynamic_cast<ClientProxy1_3 *>(existing->second);
+    const auto *replacement = dynamic_cast<ClientProxy1_3 *>(client);
+    if (previous && replacement && previous->retireForReconnect(*replacement)) {
+      LOG_INFO("replacing unresponsive authenticated client \"%s\"", getName(previous).c_str());
+      // Its queued disconnect event still owns disposal of the old proxy.
+      removeClient(previous);
+      forceLeaveClient(previous);
+    }
+  }
+#endif
   if (!addClient(client)) {
     // can only have one computer with a given name at any given time
     LOG_WARN("a client with name \"%s\" is already connected", getName(client).c_str());

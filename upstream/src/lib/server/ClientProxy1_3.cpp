@@ -8,10 +8,13 @@
  */
 
 #include "server/ClientProxy1_3.h"
+#include "server/ReconnectPolicy.h"
 
 #include "base/IEventQueue.h"
 #include "base/Log.h"
 #include "deskflow/ProtocolUtil.h"
+#include "io/StreamFilter.h"
+#include "net/SecureSocket.h"
 
 #include <atomic>
 #include <chrono>
@@ -37,6 +40,10 @@ ClientProxy1_3::ClientProxy1_3(const std::string &name, deskflow::IStream *strea
       m_events(events)
 {
   m_hbDiagConnection = hbDiagnosticNextConnection.fetch_add(1, std::memory_order_relaxed);
+  if (const auto *filter = dynamic_cast<StreamFilter *>(stream)) {
+    if (const auto *socket = dynamic_cast<SecureSocket *>(filter->getStream()))
+      m_verifiedClientFingerprint = socket->verifiedClientFingerprint();
+  }
   setHeartbeatRate(kKeepAliveRate, kKeepAliveRate * kKeepAlivesUntilDeath);
 }
 
@@ -50,6 +57,19 @@ void ClientProxy1_3::mouseWheel(int32_t xDelta, int32_t yDelta)
 {
   LOG_VERBOSE("send mouse wheel to \"%s\" %+d,%+d", getName().c_str(), xDelta, yDelta);
   ProtocolUtil::writef(getStream(), kMsgDMouseWheel, xDelta, yDelta);
+}
+
+bool ClientProxy1_3::retireForReconnect(const ClientProxy1_3 &replacement)
+{
+  if (!m_keepAliveTimer || !deskflow::canResumeSession(
+          {m_verifiedClientFingerprint.constData(), static_cast<size_t>(m_verifiedClientFingerprint.size())},
+          {replacement.m_verifiedClientFingerprint.constData(), static_cast<size_t>(replacement.m_verifiedClientFingerprint.size())},
+          m_firstUnansweredUs, hbDiagnosticNowUs(), m_keepAliveRate))
+    return false;
+
+  // The old TCP send queue may be stalled. Disconnect without flushing it.
+  disconnect();
+  return true;
 }
 
 bool ClientProxy1_3::parseMessage(const uint8_t *code)
@@ -83,6 +103,7 @@ void ClientProxy1_3::setHeartbeatRate(double rate, double)
 
 void ClientProxy1_3::resetHeartbeatTimer()
 {
+  m_firstUnansweredUs = 0;
   // reset the alarm but not the keep alive timer
   ClientProxy1_2::removeHeartbeatTimer();
   ClientProxy1_2::addHeartbeatTimer();
@@ -110,6 +131,7 @@ void ClientProxy1_3::addHeartbeatTimer()
 
 void ClientProxy1_3::removeHeartbeatTimer()
 {
+  m_firstUnansweredUs = 0;
   // remove the timer that sends keep alives periodically
   if (m_keepAliveTimer != nullptr) {
     LOG_INFO(
@@ -149,6 +171,8 @@ void ClientProxy1_3::keepAlive()
   );
   ProtocolUtil::writef(getStream(), kMsgCKeepAlive);
   const auto submitEndUs = hbDiagnosticNowUs();
+  if (!m_firstUnansweredUs)
+    m_firstUnansweredUs = submitEndUs;
   // writef queues bytes; this is deliberately NOT labelled wire_sent.
   LOG_INFO(
       "HB_DIAG submit_return conn=%llu seq=%llu mono_us=%lld elapsed_us=%lld",

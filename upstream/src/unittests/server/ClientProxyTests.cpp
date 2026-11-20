@@ -13,6 +13,7 @@
 #include "server/ClientProxy1_0.h"
 #include "server/ClientProxy1_1.h"
 #include "server/ClientProxy1_3.h"
+#include "server/ReconnectPolicy.h"
 #include "server/ClientProxy1_6.h"
 #include "server/ClientProxy1_7.h"
 #include "server/ClientProxy1_8.h"
@@ -244,6 +245,20 @@ void ClientProxyTests::heartbeatDiagnosticPreservesWire()
   QVERIFY(stream->take().isEmpty());
   proxy.fire();
   QCOMPARE(stream->take(), QByteArray("CALV"));
+}
+
+void ClientProxyTests::authenticatedReconnectPolicy()
+{
+  using deskflow::canResumeSession;
+  const std::string peer(32, '\0');
+  auto other = peer;
+  other.back() = 'x';
+  QVERIFY(!canResumeSession({}, {}, 1, 4000000, 3));
+  QVERIFY(!canResumeSession(peer, other, 1, 4000000, 3));
+  QVERIFY(!canResumeSession(peer, peer, 0, 4000000, 3));
+  QVERIFY(!canResumeSession(peer, peer, 1, 3000000, 3));
+  QVERIFY(canResumeSession(peer, peer, 1, 3000001, 3));
+  QVERIFY(!canResumeSession(peer, peer, 1, 3000001, 0));
 }
 
 QTEST_MAIN(ClientProxyTests)
